@@ -173,7 +173,19 @@ return newRecord;
 // Returns: nothing (void)
 // ============================================================
 function setBonus(textFile, driverID, date, newValue) {
-    // TODO: Implement this function
+   let file=fs.readFileSync(textFile,"utf8");
+   let lines=file.trim().split("\n")
+
+   for(let i=0;i<lines.length;i++){
+    let columns=lines[i].split(",");
+    if(driverID===columns[0] && date===columns[1]){
+        columns[9]=newValue;
+         columns.join(',');
+    }
+   }
+  
+    fs.writeFileSync(textFile, lines.join("\n"), "utf8");
+
 }
 
 // ============================================================
@@ -184,7 +196,24 @@ function setBonus(textFile, driverID, date, newValue) {
 // Returns: number (-1 if driverID not found)
 // ============================================================
 function countBonusPerMonth(textFile, driverID, month) {
-    // TODO: Implement this function
+    let file=fs.readFileSync(textFile,"utf8");
+    let lines=file.trim().split("\n");
+    let count=0;
+    let found=false;
+    for(let i=0;i<lines.length;i++){
+        let columns=lines[i].split(",");
+        if(columns[0]===driverID){
+            found=true;
+        }
+        if(driverID===columns[0] && parseInt(columns[2].split("-")[1])===parseInt(month)
+            && columns[9]==="true"){
+            count++;
+        }
+    }
+ if(!found){
+    return -1;
+ }
+ return count;
 }
 
 // ============================================================
