@@ -1,5 +1,39 @@
 const fs = require("fs");
 
+
+//HELPERS
+function timeToSeconds(timeStr) {
+ let parts=timeStr.split(" ");
+ let period=parts[1];
+ let timeperiod=parts[0].split(':');
+ let hours=parseInt(timeperiod[0]);
+ let mins=parseInt(timeperiod[1]);
+ let seconds=parseInt(timeperiod[2]);
+
+
+ if (period === "pm" && hours !== 12) hours += 12;
+ if (period === "am" && hours === 12) hours = 0;
+
+ 
+    return (hours * 3600) + (mins * 60) + seconds;
+
+}
+function secondsTotime(totalseconds){
+    let hours=Math.floor(totalseconds/3600);
+    let remaining=totalseconds%3600;
+    let minutes=Math.floor(remaining/60);
+    let seconds=remaining%60;
+    return hours + ":" +  String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+}
+function durationToseconds(dur){
+
+    let parts=dur.split(":");
+
+    return parseInt(parts[0]) *3600 + parseInt(parts[1]) *60 + parseInt(parts[2]);
+
+}
+
+
 // ============================================================
 // Function 1: getShiftDuration(startTime, endTime)
 // startTime: (typeof string) formatted as hh:mm:ss am or hh:mm:ss pm
@@ -7,7 +41,12 @@ const fs = require("fs");
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getShiftDuration(startTime, endTime) {
-    // TODO: Implement this function
+    let startTimeSeconds=timeToSeconds(startTime);
+     let endTimeSeconds=timeToSeconds(endTime);
+
+     let duration=endTimeSeconds-startTimeSeconds;
+     if (duration < 0) duration += 86400;
+     return secondsTotime(duration);
 }
 
 // ============================================================
@@ -17,7 +56,20 @@ function getShiftDuration(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getIdleTime(startTime, endTime) {
-    // TODO: Implement this function
+    let starttime=timeToSeconds(startTime);
+    let endtime=timeToSeconds(endTime);
+
+    let idlebefore=0;
+    let idleafter=0;
+
+    if(starttime<28800){
+        idlebefore=28800-starttime;
+    }
+    if(endtime>79200){
+        idleafter=endtime-79200;
+    }
+
+    return secondsTotime(idlebefore+idleafter);
 }
 
 // ============================================================
@@ -27,7 +79,7 @@ function getIdleTime(startTime, endTime) {
 // Returns: string formatted as h:mm:ss
 // ============================================================
 function getActiveTime(shiftDuration, idleTime) {
-    // TODO: Implement this function
+    return secondsTotime(durationToseconds(shiftDuration)-durationToseconds(idleTime));
 }
 
 // ============================================================
@@ -37,7 +89,20 @@ function getActiveTime(shiftDuration, idleTime) {
 // Returns: boolean
 // ============================================================
 function metQuota(date, activeTime) {
-    // TODO: Implement this function
+    let parts=date.split("-");
+
+    if(parseInt(parts[1])===4 && parseInt(parts[2])>=10 && parseInt(parts[2])<=30){
+        if(durationToseconds(activeTime)>=21600){
+            return true;
+        }
+    }else{
+        if(durationToseconds(activeTime)>=30240){
+            return true;
+        }
+    }
+    return false;
+  
+    
 }
 
 // ============================================================
@@ -47,7 +112,56 @@ function metQuota(date, activeTime) {
 // Returns: object with 10 properties or empty object {}
 // ============================================================
 function addShiftRecord(textFile, shiftObj) {
-    // TODO: Implement this function
+    let file=fs.readFileSync(textFile,"utf8");
+    let lines=file.trim().split("\n");
+      
+
+    for(let i=0 ; i<lines.length;i++){
+     let columns=lines[i].split(",");
+        if(columns[0]===shiftObj.driverID && columns[2]===shiftObj.date){
+          return {};
+        
+    }
+
+    }
+    let shiftDuration=getShiftDuration(shiftObj.startTime,shiftObj.endTime);
+    let idleTime=getIdleTime(shiftObj.startTime, shiftObj.endTime);
+    let activeTime=getActiveTime(shiftDuration,idleTime);
+    let quota=metQuota(shiftObj.date, activeTime);
+
+    let newRecord = {
+    driverID: shiftObj.driverID,
+    driverName: shiftObj.driverName,
+    date: shiftObj.date,
+    startTime: shiftObj.startTime,
+    endTime: shiftObj.endTime,
+    shiftDuration: shiftDuration,
+    idleTime: idleTime,            
+    activeTime: activeTime,         
+    metQuota: quota,               
+    hasBonus: false                
+};
+ let newLine = newRecord.driverID + "," + newRecord.driverName + "," + newRecord.date 
+ + "," + newRecord.startTime + "," + newRecord.endTime + "," + newRecord.shiftDuration 
+ + "," + newRecord.idleTime + "," + newRecord.activeTime + "," + newRecord.metQuota + "," 
+ + newRecord.hasBonus;
+
+
+  let lastIndex=-1;
+  for(let i=0;i<lines.length;i++){
+    let columns=lines[i].split(",");
+    if(shiftObj.driverID===columns[0]){
+        
+        lastIndex=i;
+    }
+  }
+  if(lastIndex===-1){
+    lines.push(newLine);
+  }else{
+    lines.splice(lastIndex+1,0,newLine);
+  }
+  fs.writeFileSync(textFile, lines.join("\n"), "utf8");
+return newRecord;
 }
 
 // ============================================================
